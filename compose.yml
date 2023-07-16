@@ -1,0 +1,14 @@
+version: "3"
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ./docker/api/Dockerfile
+      target: dev
+    volumes:
+      - ./src:/go/src
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    env_file:
+      - ./.env
+    command: air -c .air.toml
