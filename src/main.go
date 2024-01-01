@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"regexp"
@@ -27,8 +27,9 @@ func main() {
 }
 
 func handleExecute(w http.ResponseWriter, r *http.Request) {
+
 	// リクエストボディの読み取り
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -57,24 +58,25 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 	// コンテナ名
 	containerName := "go-play-langs-perl"
 
-	// コンテナでコマンドを実行
 	execResp, err := cli.ContainerExecCreate(ctx, containerName, types.ExecConfig{
-		Cmd:          []string{"perl", "-e", req.Code},
+		Cmd:          []string{"perl", "-e", "print(111"},
 		AttachStdout: true,
+		AttachStderr: true,
 	})
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error creating exec: %s", err)
 	}
 
 	// コンテナ実行結果の読み取り
 	execAttachResp, err := cli.ContainerExecAttach(ctx, execResp.ID, types.ExecStartCheck{})
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error attaching to exec: %s", err)
 	}
+
 	defer execAttachResp.Close()
 
 	// 実行結果の読み込み
-	outputBytes, err := ioutil.ReadAll(execAttachResp.Reader)
+	outputBytes, err := io.ReadAll(execAttachResp.Reader)
 	if err != nil {
 		panic(err)
 	}
