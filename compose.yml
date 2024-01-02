@@ -14,11 +14,51 @@ services:
       - ./.env
     command: air -c .air.toml
 
+  ruby:
+    build: ./docker/ruby
+    container_name: go-playground-ruby
+    volumes:
+      - ./src/share/scripts:/user/scripts
+    tty: true
+
   perl:
-    build:
-      context: .
-      dockerfile: ./docker/perl/Dockerfile
-    container_name: go-play-langs-perl
+    build: ./docker/perl
+    container_name: go-playground-perl
+    volumes:
+      - ./src/share/scripts:/user/scripts
+    tty: true
+
+  rust:
+    build: ./docker/rust
+    container_name: go-playground-rust
+    volumes:
+      - ./src/share/scripts:/user/scripts
+    tty: true
+
+  go:
+    build: ./docker/go
+    container_name: go-playground-go
+    volumes:
+      - ./src/share/scripts:/user/scripts
+    tty: true
+
+  python:
+    build: ./docker/python
+    container_name: go-playground-python
+    volumes:
+      - ./src/share/scripts:/user/scripts
+    tty: true
+
+  julia:
+    build: ./docker/julia
+    container_name: go-playground-julia
+    volumes:
+      - ./src/share/scripts:/user/scripts
+    tty: true
+
+  swift:
+    build: ./docker/swift
+    container_name: go-playground-swift
     volumes:
       - ./src/share/scripts:/user/scripts
     tty: true
