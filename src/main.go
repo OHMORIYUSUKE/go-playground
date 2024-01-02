@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -14,7 +15,8 @@ import (
 )
 
 type CodeRequest struct {
-	Code string `json:"code"`
+	Code     string `json:"code"`
+	Language string `json:"language"`
 }
 
 type ExecutionResult struct {
@@ -27,7 +29,6 @@ func main() {
 	router.POST("/execute", handleExecute)
 	log.Fatal(router.Run(":8080"))
 }
-
 func handleExecute(c *gin.Context) {
 	var req CodeRequest
 
@@ -40,7 +41,7 @@ func handleExecute(c *gin.Context) {
 	ctx := context.Background()
 
 	// コード書き込み
-	err := writeStringToFile(c, req.Code, "./share/scripts/main.pl")
+	err := writeStringToFile(c, req.Code, "./share/scripts/main"+getFileExtension(req.Language))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -54,10 +55,34 @@ func handleExecute(c *gin.Context) {
 	}
 
 	// コンテナ名
-	containerName := "go-play-langs-perl"
+	containerName := "go-playground-" + req.Language
+
+	filename := "main" + getFileExtension(req.Language)
+	var langCmd []string
+	switch req.Language {
+	case "perl":
+		langCmd = []string{"perl", filename}
+	case "ruby":
+		langCmd = []string{"ruby", filename}
+	case "go":
+		langCmd = []string{"go", "run", filename}
+	case "python":
+		langCmd = []string{"python", filename}
+	case "julia":
+		langCmd = []string{"julia", filename}
+	case "rust":
+		langCmd = []string{"sh", "-c", "rustc " + filename + " && ./main"}
+	case "swift":
+		langCmd = []string{"sh", "-c", "swiftc " + filename + " && ./main"}
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported language"})
+		return
+	}
+
+	fmt.Println(langCmd)
 
 	execResp, err := cli.ContainerExecCreate(ctx, containerName, types.ExecConfig{
-		Cmd:          []string{"perl", "main.pl"},
+		Cmd:          langCmd,
 		AttachStdout: true,
 		AttachStderr: true,
 	})
@@ -100,6 +125,27 @@ func handleExecute(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+func getFileExtension(language string) string {
+	switch language {
+	case "perl":
+		return ".pl"
+	case "ruby":
+		return ".rb"
+	case "go":
+		return ".go"
+	case "python":
+		return ".py"
+	case "julia":
+		return ".jl"
+	case "rust":
+		return ".rs"
+	case "swift":
+		return ".swift"
+	default:
+		return ""
+	}
 }
 
 // 制御文字や不可視文字を削除する関数
