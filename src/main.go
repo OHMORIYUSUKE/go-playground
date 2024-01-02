@@ -126,7 +126,7 @@ func handleExecute(c *gin.Context) ExecutionResult {
 		return ExecutionResult{}
 	}
 
-	output := string(outputBytes)
+	output := filterNonPrintableASCII(outputBytes)
 
 	// コンテナ実行結果の詳細を取得
 	execInspect, err := cli.ContainerExecInspect(ctx, execResp.ID)
@@ -140,6 +140,16 @@ func handleExecute(c *gin.Context) ExecutionResult {
 	}
 
 	return result
+}
+
+func filterNonPrintableASCII(input []byte) string {
+	result := make([]byte, 0, len(input))
+	for _, b := range input {
+		if b >= 32 || b == 10 || b == 13 { // Keep printable ASCII characters and newline/carriage return
+			result = append(result, b)
+		}
+	}
+	return string(result)
 }
 
 func getFileExtension(language string) string {
