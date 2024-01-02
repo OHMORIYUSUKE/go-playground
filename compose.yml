@@ -4,7 +4,6 @@ services:
     build:
       context: .
       dockerfile: ./docker/api/Dockerfile
-      target: dev
     volumes:
       - ./src:/go/src
       - /var/run/docker.sock:/var/run/docker.sock

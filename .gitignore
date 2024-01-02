@@ -1,3 +1,4 @@
 .env
 /src/share/scripts/*
 !/src/share/scripts/.gitkeep
+/src/tmp/

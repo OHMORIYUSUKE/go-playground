@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -26,38 +25,51 @@ type ExecutionResult struct {
 
 func main() {
 	router := gin.Default()
-	router.POST("/execute", handleExecute)
+	router.Static("/assets", "./assets")
+	router.LoadHTMLGlob("templates/*.html")
+	router.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.html", nil)
+	})
+
+	router.POST("/", func(c *gin.Context) {
+		result := handleExecute(c)
+		c.HTML(http.StatusOK, "index.html", gin.H{
+			"Code":     c.PostForm("code"),
+			"Language": c.PostForm("language"),
+			"Output":   result.Output,
+			"ExitCode": result.ExitCode,
+		})
+	})
 	log.Fatal(router.Run(":8080"))
 }
-func handleExecute(c *gin.Context) {
+
+func handleExecute(c *gin.Context) ExecutionResult {
+
 	var req CodeRequest
 
-	// JSONデコード
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	// HTML フォームからデータを取得する
+	req.Code = c.PostForm("code")
+	req.Language = c.PostForm("language")
 
 	ctx := context.Background()
 
 	// コード書き込み
 	err := writeStringToFile(c, req.Code, "./share/scripts/main"+getFileExtension(req.Language))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return ExecutionResult{}
 	}
 
 	// Dockerクライアントの作成
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return ExecutionResult{}
 	}
 
 	// コンテナ名
 	containerName := "go-playground-" + req.Language
 
 	filename := "main" + getFileExtension(req.Language)
+	// コマンド
 	var langCmd []string
 	switch req.Language {
 	case "perl":
@@ -74,12 +86,7 @@ func handleExecute(c *gin.Context) {
 		langCmd = []string{"sh", "-c", "rustc " + filename + " && ./main"}
 	case "swift":
 		langCmd = []string{"sh", "-c", "swiftc " + filename + " && ./main"}
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported language"})
-		return
 	}
-
-	fmt.Println(langCmd)
 
 	execResp, err := cli.ContainerExecCreate(ctx, containerName, types.ExecConfig{
 		Cmd:          langCmd,
@@ -87,44 +94,36 @@ func handleExecute(c *gin.Context) {
 		AttachStderr: true,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return ExecutionResult{}
 	}
 
 	// コンテナ実行結果の読み取り
 	execAttachResp, err := cli.ContainerExecAttach(ctx, execResp.ID, types.ExecStartCheck{})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return ExecutionResult{}
 	}
 	defer execAttachResp.Close()
 
 	// 実行結果の読み込み
 	outputBytes, err := io.ReadAll(execAttachResp.Reader)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return ExecutionResult{}
 	}
 
-	// 実行結果の整形
-	output := string(outputBytes)
-	// 制御文字や不可視文字を削除する
-	output = removeNonPrintableChars(output)
+	output := removeNonPrintableChars(string(outputBytes))
 
 	// コンテナ実行結果の詳細を取得
 	execInspect, err := cli.ContainerExecInspect(ctx, execResp.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return ExecutionResult{}
 	}
 
-	// 実行結果をJSON形式で返す
 	result := ExecutionResult{
 		Output:   output,
 		ExitCode: execInspect.ExitCode,
 	}
 
-	c.JSON(http.StatusOK, result)
+	return result
 }
 
 func getFileExtension(language string) string {
@@ -148,18 +147,15 @@ func getFileExtension(language string) string {
 	}
 }
 
-// 制御文字や不可視文字を削除する関数
 func removeNonPrintableChars(s string) string {
 	reg := regexp.MustCompile("[[:cntrl:]]")
 	return reg.ReplaceAllString(s, "")
 }
 
 func writeStringToFile(c *gin.Context, content, filename string) error {
-	// ファイルに文字列を書き込む
 	err := os.WriteFile(filename, []byte(content), 0644)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }

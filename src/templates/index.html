@@ -1,0 +1,41 @@
+<html>
+  <head>
+    <title>Playground</title>
+    <style type="text/css" media="screen">
+      @import url("/assets/styles.css");
+    </style>
+  </head>
+  <body>
+    <div id="main">
+      <div>
+        <p>サンプルコード</p>
+        <form action="/" method="post">
+          <p>言語</p>
+          <select name="language">
+            <option value="perl" {{if eq .Language "perl"}}selected{{end}}>Perl</option>
+            <option value="ruby" {{if eq .Language "ruby"}}selected{{end}}>Ruby</option>
+            <option value="go" {{if eq .Language "go"}}selected{{end}}>Go</option>
+            <option value="python" {{if eq .Language "python"}}selected{{end}}>Python</option>
+            <option value="julia" {{if eq .Language "julia"}}selected{{end}}>Julia</option>
+            <option value="rust" {{if eq .Language "rust"}}selected{{end}}>Rust</option>
+            <option value="swift" {{if eq .Language "swift"}}selected{{end}}>Swift</option>
+          </select>               
+          <p>コード</p>
+          <textarea name="code" rows="10" cols="70">{{ .Code }}</textarea>
+          <input id="submit" type="submit" value="実行" />
+        </form>
+      </div>
+      <div id="terminal">
+        {{ if eq .ExitCode 0 }}
+        <dev id="exitcode0">
+          <code>{{ .Output }}</code>
+        </dev>
+        {{ else }}
+        <dev id="exitcode1">
+          <code>{{ .Output }}</code>
+        </dev>
+        {{ end }}
+      </div>
+    </div>
+  </body>
+</html>

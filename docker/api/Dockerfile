@@ -1,4 +1,4 @@
-FROM golang:1.20.4 as dev
+FROM golang:1.20.4
 
 CMD ["/bin/bash", "-b"]
 
