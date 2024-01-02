@@ -15,6 +15,7 @@ import (
 
 type CodeRequest struct {
 	Code     string `json:"code"`
+	Input    string `json:"input"`
 	Language string `json:"language"`
 }
 
@@ -35,6 +36,7 @@ func main() {
 		result := handleExecute(c)
 		c.HTML(http.StatusOK, "index.html", gin.H{
 			"Code":     c.PostForm("code"),
+			"Input":    c.PostForm("input"),
 			"Language": c.PostForm("language"),
 			"Output":   result.Output,
 			"ExitCode": result.ExitCode,
@@ -50,11 +52,17 @@ func handleExecute(c *gin.Context) ExecutionResult {
 	// HTML フォームからデータを取得する
 	req.Code = c.PostForm("code")
 	req.Language = c.PostForm("language")
+	req.Input = c.PostForm("input")
 
 	ctx := context.Background()
 
 	// コード書き込み
 	err := writeStringToFile(c, req.Code, "./share/scripts/main"+getFileExtension(req.Language))
+	if err != nil {
+		return ExecutionResult{}
+	}
+	// コード書き込み
+	err = writeStringToFile(c, req.Input, "./share/scripts/input.txt")
 	if err != nil {
 		return ExecutionResult{}
 	}
@@ -73,15 +81,15 @@ func handleExecute(c *gin.Context) ExecutionResult {
 	var langCmd []string
 	switch req.Language {
 	case "perl":
-		langCmd = []string{"perl", filename}
+		langCmd = []string{"sh", "-c", "perl " + filename + " < input.txt"}
 	case "ruby":
-		langCmd = []string{"ruby", filename}
+		langCmd = []string{"sh", "-c", "ruby " + filename + " < input.txt"}
 	case "go":
-		langCmd = []string{"go", "run", filename}
+		langCmd = []string{"sh", "-c", "go run " + filename + " < input.txt"}
 	case "python":
-		langCmd = []string{"python", filename}
+		langCmd = []string{"sh", "-c", "python " + filename + " < input.txt"}
 	case "julia":
-		langCmd = []string{"julia", filename}
+		langCmd = []string{"sh", "-c", "julia " + filename + " < input.txt"}
 	case "rust":
 		langCmd = []string{"sh", "-c", "rustc " + filename + " && ./main"}
 	case "swift":
