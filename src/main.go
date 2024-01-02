@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/gin-gonic/gin"
 )
 
 type CodeRequest struct {
@@ -22,23 +22,17 @@ type ExecutionResult struct {
 }
 
 func main() {
-	http.HandleFunc("/execute", handleExecute)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	router := gin.Default()
+	router.POST("/execute", handleExecute)
+	log.Fatal(router.Run(":8080"))
 }
 
-func handleExecute(w http.ResponseWriter, r *http.Request) {
-	// リクエストボディの読み取り
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+func handleExecute(c *gin.Context) {
+	var req CodeRequest
 
 	// JSONデコード
-	var req CodeRequest
-	err = json.Unmarshal(body, &req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -47,7 +41,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 	// Dockerクライアントの作成
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -60,14 +54,14 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		AttachStderr: true,
 	})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	// コンテナ実行結果の読み取り
 	execAttachResp, err := cli.ContainerExecAttach(ctx, execResp.ID, types.ExecStartCheck{})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer execAttachResp.Close()
@@ -75,7 +69,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 	// 実行結果の読み込み
 	outputBytes, err := io.ReadAll(execAttachResp.Reader)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -87,7 +81,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 	// コンテナ実行結果の詳細を取得
 	execInspect, err := cli.ContainerExecInspect(ctx, execResp.ID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -97,14 +91,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		ExitCode: execInspect.ExitCode,
 	}
 
-	response, err := json.Marshal(result)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(response)
+	c.JSON(http.StatusOK, result)
 }
 
 // 制御文字や不可視文字を削除する関数
