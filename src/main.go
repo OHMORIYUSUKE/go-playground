@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -127,7 +126,7 @@ func handleExecute(c *gin.Context) ExecutionResult {
 		return ExecutionResult{}
 	}
 
-	output := removeNonPrintableChars(string(outputBytes))
+	output := string(outputBytes)
 
 	// コンテナ実行結果の詳細を取得
 	execInspect, err := cli.ContainerExecInspect(ctx, execResp.ID)
@@ -162,11 +161,6 @@ func getFileExtension(language string) string {
 	default:
 		return ""
 	}
-}
-
-func removeNonPrintableChars(s string) string {
-	reg := regexp.MustCompile("[[:cntrl:]]")
-	return reg.ReplaceAllString(s, "")
 }
 
 func writeStringToFile(c *gin.Context, content, filename string) error {
