@@ -29,7 +29,16 @@ func main() {
 	router.Static("/assets", "./assets")
 	router.LoadHTMLGlob("templates/*.html")
 	router.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", nil)
+		language := c.Query("language")
+		if language == "" {
+			language = "perl"
+		}
+		code := getSampleCode(language)
+		c.HTML(http.StatusOK, "index.html", gin.H{
+			"Code":     code,
+			"Input":    "World !!",
+			"Language": language,
+		})
 	})
 
 	router.POST("/", func(c *gin.Context) {
@@ -91,9 +100,9 @@ func handleExecute(c *gin.Context) ExecutionResult {
 	case "julia":
 		langCmd = []string{"sh", "-c", "julia " + filename + " < input.txt"}
 	case "rust":
-		langCmd = []string{"sh", "-c", "rustc " + filename + " && ./main"}
+		langCmd = []string{"sh", "-c", "rustc " + filename + " && ./main < input.txt"}
 	case "swift":
-		langCmd = []string{"sh", "-c", "swiftc " + filename + " && ./main"}
+		langCmd = []string{"sh", "-c", "swiftc " + filename + " && ./main < input.txt"}
 	}
 
 	execResp, err := cli.ContainerExecCreate(ctx, containerName, types.ExecConfig{
@@ -166,4 +175,74 @@ func writeStringToFile(c *gin.Context, content, filename string) error {
 		return err
 	}
 	return nil
+}
+
+func getSampleCode(language string) string {
+	switch language {
+	case "perl":
+		return `#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+my $input = <STDIN>;
+chomp($input);
+
+print "Hello $input";
+`
+	case "ruby":
+		return `user_input = gets.chomp
+
+greeting = "Hello #{user_input}"
+
+puts greeting`
+	case "go":
+		return `package main
+
+import "fmt"
+
+func main() {
+var input string
+fmt.Scanln(&input)
+
+fmt.Printf("Hello %s", input)
+}`
+	case "kotlin":
+		return `fun main() {
+val input = readLine()
+
+println("Hello $input")
+}`
+	case "julia":
+		return `input = readline()
+
+println("Hello $input")`
+	case "rust":
+		return `use std::io;
+
+fn main() {
+let mut input = String::new();
+
+io::stdin().read_line(&mut input).expect("Failed to read line");
+let input = input.trim();
+
+println!("Hello {}", input);
+}`
+	case "python":
+		return `
+user_input = input()
+
+greeting = f"Hello {user_input}"
+
+print(greeting)
+`
+	case "swift":
+		return `import Foundation
+
+if let input = readLine() {
+print("Hello \(input)")
+}
+`
+	}
+	return ""
 }
